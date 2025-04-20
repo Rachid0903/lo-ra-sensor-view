@@ -1,52 +1,46 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SensorData } from "@/utils/mockData";
 import { Thermometer, Droplet, Rss } from "lucide-react";
+import type { SensorData } from "@/services/sensorService";
 
 interface SensorCardProps {
   sensor: SensorData;
 }
 
 const SensorCard: React.FC<SensorCardProps> = ({ sensor }) => {
-  const formatLastUpdated = (date: Date): string => {
+  const formatLastUpdated = (dateStr: string): string => {
     return new Intl.DateTimeFormat('fr-FR', {
       hour: '2-digit',
       minute: '2-digit',
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
-    }).format(date);
+    }).format(new Date(dateStr));
   };
 
-  const getStatusColor = (status: 'online' | 'offline' | 'warning'): string => {
-    switch (status) {
-      case 'online':
-        return 'bg-green-500';
-      case 'offline':
-        return 'bg-red-500';
-      case 'warning':
-        return 'bg-yellow-500';
-    }
+  const getStatusColor = (rssi: number): string => {
+    if (rssi > -70) return 'bg-green-500';
+    if (rssi > -90) return 'bg-yellow-500';
+    return 'bg-red-500';
   };
 
   return (
     <Card className="overflow-hidden border-t-4 border-t-lora hover:shadow-lg transition-all duration-300">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-lg font-semibold">{sensor.name}</CardTitle>
+          <CardTitle className="text-lg font-semibold">Capteur {sensor.id}</CardTitle>
           <div className="flex items-center gap-2">
             <div
               className={`h-2.5 w-2.5 rounded-full ${getStatusColor(
-                sensor.status
+                sensor.rssi
               )} animate-pulse-slow`}
             ></div>
-            <span className="text-xs text-muted-foreground capitalize">
-              {sensor.status}
+            <span className="text-xs text-muted-foreground">
+              {sensor.rssi > -70 ? 'online' : sensor.rssi > -90 ? 'warning' : 'offline'}
             </span>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">{sensor.location}</p>
       </CardHeader>
 
       <CardContent>
@@ -71,7 +65,7 @@ const SensorCard: React.FC<SensorCardProps> = ({ sensor }) => {
         </div>
 
         <div className="mt-4 text-xs text-right text-muted-foreground">
-          Dernière mise à jour: {formatLastUpdated(sensor.lastUpdated)}
+          Dernière mise à jour: {formatLastUpdated(sensor.last_updated)}
         </div>
       </CardContent>
     </Card>

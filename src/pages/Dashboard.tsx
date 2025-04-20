@@ -1,12 +1,12 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import SensorCard from "@/components/SensorCard";
-import { mockSensors, refreshSensorData, SensorData } from "@/utils/mockData";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { getSensorData } from "@/services/sensorService";
+import type { SensorData } from "@/services/sensorService";
 
 const Dashboard: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -22,23 +22,12 @@ const Dashboard: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  // Chargement initial des données
-  useEffect(() => {
-    if (isAuthenticated) {
-      setSensors(mockSensors);
-    }
-  }, [isAuthenticated]);
-
   // Fonction pour rafraîchir les données des capteurs
   const handleRefresh = async () => {
     setIsLoading(true);
     try {
-      // Simuler un délai de chargement
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Rafraîchir les données
-      const updatedSensors = refreshSensorData(sensors);
-      setSensors(updatedSensors);
+      const data = await getSensorData();
+      setSensors(data);
       setLastRefreshed(new Date());
       
       toast({
@@ -56,15 +45,14 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Simuler le rafraîchissement automatique toutes les 15 minutes
+  // Chargement initial et rafraîchissement automatique
   useEffect(() => {
-    // Pour la démo, on réduit à 2 minutes
-    const interval = setInterval(() => {
+    if (isAuthenticated) {
       handleRefresh();
-    }, 2 * 60 * 1000); // 2 minutes en millisecondes
-    
-    return () => clearInterval(interval);
-  }, [sensors]);
+      const interval = setInterval(handleRefresh, 2 * 60 * 1000); // 2 minutes
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
 
   // Format de date pour afficher le moment du dernier rafraîchissement
   const formatLastRefreshed = (date: Date): string => {
@@ -76,7 +64,7 @@ const Dashboard: React.FC = () => {
   };
 
   if (!isAuthenticated) {
-    return null; // Ne rien afficher pendant la redirection
+    return null;
   }
 
   return (
