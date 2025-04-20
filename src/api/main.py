@@ -1,11 +1,10 @@
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 import sqlite3
 from datetime import datetime
-import os
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -13,7 +12,7 @@ app = FastAPI()
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with your frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -50,7 +49,6 @@ def init_db():
 
 init_db()
 
-# Routes
 @app.post("/sensor-data/")
 async def receive_sensor_data(data: SensorData):
     conn = sqlite3.connect('sensors.db')
