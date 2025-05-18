@@ -1,3 +1,4 @@
+
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -39,7 +40,7 @@ void displayReceivedData(const LoRaPacket& packet);
 
 const char* ssid = "VOTRE_SSID";
 const char* password = "VOTRE_MOT_DE_PASSE";
-const char* serverUrl = "http://localhost:8000/sensor-data/";
+const char* serverUrl = "http://ADRESSE_IP_BACKEND:8000/sensor-data/";
 
 void sendToBackend(const LoRaPacket& packet) {
   if (WiFi.status() == WL_CONNECTED) {
@@ -138,7 +139,7 @@ void loop() {
       if (receivedCRC == calculatedCRC) {
         // Afficher les données
         displayReceivedData(receivedPacket);
-        sendToBackend(receivedPacket);  // Ajout de l'envoi au backend
+        sendToBackend(receivedPacket);  // Envoyer au backend
       } else {
         Serial.println("CRC invalide!");
         Serial.printf("Received CRC: %04X, Calculated CRC: %04X\n", receivedCRC, calculatedCRC);
