@@ -24,6 +24,12 @@ const SensorCard: React.FC<SensorCardProps> = ({ sensor }) => {
     if (rssi > -90) return 'bg-yellow-500';
     return 'bg-red-500';
   };
+  
+  const getStatusText = (rssi: number): string => {
+    if (rssi > -70) return 'Excellent';
+    if (rssi > -90) return 'Moyen';
+    return 'Faible';
+  };
 
   return (
     <Card className="overflow-hidden border-t-4 border-t-lora hover:shadow-lg transition-all duration-300">
@@ -37,7 +43,7 @@ const SensorCard: React.FC<SensorCardProps> = ({ sensor }) => {
               )} animate-pulse-slow`}
             ></div>
             <span className="text-xs text-muted-foreground">
-              {sensor.rssi > -70 ? 'online' : sensor.rssi > -90 ? 'warning' : 'offline'}
+              {getStatusText(sensor.rssi)}
             </span>
           </div>
         </div>
@@ -60,12 +66,12 @@ const SensorCard: React.FC<SensorCardProps> = ({ sensor }) => {
           <div className="flex flex-col items-center p-2 rounded-md bg-sensor-rssi bg-opacity-10">
             <Rss className="h-5 w-5 text-sensor-rssi mb-1" />
             <span className="text-lg font-medium">{sensor.rssi} dBm</span>
-            <span className="text-xs text-muted-foreground">RSSI</span>
+            <span className="text-xs text-muted-foreground">Signal</span>
           </div>
         </div>
 
         <div className="mt-4 text-xs text-right text-muted-foreground">
-          Dernière mise à jour: {formatLastUpdated(sensor.last_updated)}
+          Mis à jour: {formatLastUpdated(sensor.last_updated)}
         </div>
       </CardContent>
     </Card>

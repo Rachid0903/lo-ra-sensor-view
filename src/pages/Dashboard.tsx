@@ -1,12 +1,19 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import SensorCard from "@/components/SensorCard";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, LayoutDashboard, Users, Settings } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { getSensorData } from "@/services/sensorService";
 import type { SensorData } from "@/services/sensorService";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 const Dashboard: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -14,6 +21,11 @@ const Dashboard: React.FC = () => {
   const [sensors, setSensors] = useState<SensorData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [stats, setStats] = useState({
+    avgTemp: 0,
+    avgHumidity: 0,
+    onlineSensors: 0
+  });
 
   // Redirection si non authentifié
   useEffect(() => {
@@ -22,12 +34,28 @@ const Dashboard: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
+  // Calculer les statistiques
+  const calculateStats = (sensors: SensorData[]) => {
+    if (sensors.length === 0) return;
+    
+    const tempSum = sensors.reduce((sum, sensor) => sum + sensor.temperature, 0);
+    const humiditySum = sensors.reduce((sum, sensor) => sum + sensor.humidity, 0);
+    const onlineSensors = sensors.filter(sensor => sensor.rssi > -90).length;
+    
+    setStats({
+      avgTemp: parseFloat((tempSum / sensors.length).toFixed(1)),
+      avgHumidity: Math.round(humiditySum / sensors.length),
+      onlineSensors: onlineSensors
+    });
+  };
+
   // Fonction pour rafraîchir les données des capteurs
   const handleRefresh = async () => {
     setIsLoading(true);
     try {
       const data = await getSensorData();
       setSensors(data);
+      calculateStats(data);
       setLastRefreshed(new Date());
       
       toast({
@@ -70,17 +98,20 @@ const Dashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header avec la barre de navigation */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-lora">LoRa Sensor View</h1>
+              <h1 className="text-2xl font-bold text-lora flex items-center gap-2">
+                <LayoutDashboard className="h-6 w-6" />
+                LoRa Sensor View
+              </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="text-sm">
+              <div className="text-sm hidden md:block">
                 <p className="text-gray-500">Bonjour, <span className="font-medium text-gray-900">{user?.firstName}</span></p>
               </div>
-              <Button variant="outline" onClick={logout}>
+              <Button variant="outline" onClick={logout} size="sm">
                 Déconnexion
               </Button>
             </div>
@@ -90,7 +121,7 @@ const Dashboard: React.FC = () => {
 
       {/* Contenu principal */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Tableau de bord</h2>
             <p className="text-sm text-gray-500">
@@ -101,18 +132,75 @@ const Dashboard: React.FC = () => {
             variant="outline"
             onClick={handleRefresh}
             disabled={isLoading}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 self-end md:self-auto"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             {isLoading ? "Actualisation..." : "Actualiser"}
           </Button>
         </div>
 
+        {/* Cartes de statistiques */}
+        {sensors.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium text-gray-500">Température moyenne</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center">
+                  <span className="text-3xl font-bold text-sensor-temp">{stats.avgTemp}°C</span>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium text-gray-500">Humidité moyenne</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center">
+                  <span className="text-3xl font-bold text-sensor-humidity">{stats.avgHumidity}%</span>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium text-gray-500">Capteurs en ligne</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center">
+                  <span className="text-3xl font-bold text-lora">
+                    {stats.onlineSensors}/{sensors.length}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Grille des capteurs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {sensors.map((sensor) => (
-            <SensorCard key={sensor.id} sensor={sensor} />
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {sensors.length === 0 && !isLoading ? (
+            <div className="col-span-full py-12 text-center">
+              <p className="text-gray-500 mb-4">Aucun capteur disponible pour le moment</p>
+              <Button variant="outline" onClick={handleRefresh}>
+                Actualiser
+              </Button>
+            </div>
+          ) : (
+            sensors.map((sensor) => (
+              <SensorCard key={sensor.id} sensor={sensor} />
+            ))
+          )}
+          
+          {/* État de chargement */}
+          {isLoading && sensors.length === 0 && (
+            <div className="col-span-full py-12 text-center">
+              <RefreshCw className="h-8 w-8 text-lora animate-spin mx-auto mb-4" />
+              <p className="text-gray-500">Chargement des capteurs...</p>
+            </div>
+          )}
         </div>
       </main>
     </div>
