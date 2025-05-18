@@ -1,13 +1,12 @@
 
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { database } from "@/services/firebaseConfig";
+import { ref, onValue, off } from "firebase/database";
 import SensorCard from "@/components/SensorCard";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, LayoutDashboard, Users, Settings } from "lucide-react";
+import { RefreshCw, LayoutDashboard, Thermometer, Droplet, Gauge, Signal } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import { getSensorData } from "@/services/sensorService";
-import type { SensorData } from "@/services/sensorService";
+import type { SensorData } from "@/components/SensorCard";
 import {
   Card,
   CardContent,
@@ -16,23 +15,15 @@ import {
 } from "@/components/ui/card";
 
 const Dashboard: React.FC = () => {
-  const { user, isAuthenticated, logout } = useAuth();
-  const navigate = useNavigate();
   const [sensors, setSensors] = useState<SensorData[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [stats, setStats] = useState({
     avgTemp: 0,
     avgHumidity: 0,
+    avgPressure: 0,
     onlineSensors: 0
   });
-
-  // Redirection si non authentifié
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate("/");
-    }
-  }, [isAuthenticated, navigate]);
 
   // Calculer les statistiques
   const calculateStats = (sensors: SensorData[]) => {
@@ -40,47 +31,69 @@ const Dashboard: React.FC = () => {
     
     const tempSum = sensors.reduce((sum, sensor) => sum + sensor.temperature, 0);
     const humiditySum = sensors.reduce((sum, sensor) => sum + sensor.humidity, 0);
+    const pressureSum = sensors.reduce((sum, sensor) => sum + sensor.pressure, 0);
     const onlineSensors = sensors.filter(sensor => sensor.rssi > -90).length;
     
     setStats({
       avgTemp: parseFloat((tempSum / sensors.length).toFixed(1)),
-      avgHumidity: Math.round(humiditySum / sensors.length),
+      avgHumidity: parseFloat((humiditySum / sensors.length).toFixed(1)),
+      avgPressure: parseFloat((pressureSum / sensors.length).toFixed(1)),
       onlineSensors: onlineSensors
     });
   };
 
-  // Fonction pour rafraîchir les données des capteurs
-  const handleRefresh = async () => {
-    setIsLoading(true);
-    try {
-      const data = await getSensorData();
-      setSensors(data);
-      calculateStats(data);
-      setLastRefreshed(new Date());
-      
-      toast({
-        title: "Données actualisées",
-        description: "Les données des capteurs ont été mises à jour avec succès",
-      });
-    } catch (error) {
+  // Chargement des données depuis Firebase
+  useEffect(() => {
+    const devicesRef = ref(database, 'devices');
+    
+    const handleData = (snapshot: any) => {
+      const data = snapshot.val();
+      if (data) {
+        const sensorsArray = Object.entries(data).map(([id, values]: [string, any]) => ({
+          id,
+          ...values
+        }));
+        
+        setSensors(sensorsArray);
+        calculateStats(sensorsArray);
+        setLastRefreshed(new Date());
+        setIsLoading(false);
+      } else {
+        setSensors([]);
+        setIsLoading(false);
+      }
+    };
+
+    onValue(devicesRef, handleData, (error) => {
+      console.error("Error fetching sensor data:", error);
+      setIsLoading(false);
       toast({
         title: "Erreur",
-        description: "Impossible de rafraîchir les données",
+        description: "Impossible de récupérer les données des capteurs",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    });
+    
+    // Cleanup on unmount
+    return () => {
+      off(devicesRef);
+    };
+  }, []);
 
-  // Chargement initial et rafraîchissement automatique
-  useEffect(() => {
-    if (isAuthenticated) {
-      handleRefresh();
-      const interval = setInterval(handleRefresh, 2 * 60 * 1000); // 2 minutes
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated]);
+  // Fonction pour rafraîchir les données manuellement
+  const handleRefresh = () => {
+    setIsLoading(true);
+    // Firebase automatically updates when data changes
+    // This just updates the last refreshed time and shows a toast
+    setLastRefreshed(new Date());
+    
+    toast({
+      title: "Données actualisées",
+      description: "Les données des capteurs ont été mises à jour avec succès",
+    });
+    
+    setIsLoading(false);
+  };
 
   // Format de date pour afficher le moment du dernier rafraîchissement
   const formatLastRefreshed = (date: Date): string => {
@@ -91,10 +104,6 @@ const Dashboard: React.FC = () => {
     }).format(date);
   };
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header avec la barre de navigation */}
@@ -104,15 +113,12 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center">
               <h1 className="text-2xl font-bold text-lora flex items-center gap-2">
                 <LayoutDashboard className="h-6 w-6" />
-                LoRa Sensor View
+                Système de Surveillance IoT
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="text-sm hidden md:block">
-                <p className="text-gray-500">Bonjour, <span className="font-medium text-gray-900">{user?.firstName}</span></p>
-              </div>
-              <Button variant="outline" onClick={logout} size="sm">
-                Déconnexion
+              <Button variant="outline" onClick={handleRefresh} size="sm">
+                Actualiser
               </Button>
             </div>
           </div>
@@ -141,13 +147,14 @@ const Dashboard: React.FC = () => {
 
         {/* Cartes de statistiques */}
         {sensors.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-6">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium text-gray-500">Température moyenne</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center">
+                  <Thermometer className="h-5 w-5 text-sensor-temp mr-2" />
                   <span className="text-3xl font-bold text-sensor-temp">{stats.avgTemp}°C</span>
                 </div>
               </CardContent>
@@ -159,6 +166,7 @@ const Dashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center">
+                  <Droplet className="h-5 w-5 text-sensor-humidity mr-2" />
                   <span className="text-3xl font-bold text-sensor-humidity">{stats.avgHumidity}%</span>
                 </div>
               </CardContent>
@@ -166,10 +174,23 @@ const Dashboard: React.FC = () => {
             
             <Card>
               <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium text-gray-500">Pression moyenne</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center">
+                  <Gauge className="h-5 w-5 text-blue-500 mr-2" />
+                  <span className="text-3xl font-bold text-blue-500">{stats.avgPressure} hPa</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium text-gray-500">Capteurs en ligne</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center">
+                  <Signal className="h-5 w-5 text-lora mr-2" />
                   <span className="text-3xl font-bold text-lora">
                     {stats.onlineSensors}/{sensors.length}
                   </span>
