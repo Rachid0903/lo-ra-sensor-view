@@ -50,6 +50,11 @@ const SensorCard: React.FC<SensorCardProps> = ({ sensor }) => {
     return `${hours}h ${minutes}m ${remainingSeconds}s`;
   };
 
+  // Ensure numeric values by parsing them
+  const temperature = typeof sensor.temperature === 'number' ? sensor.temperature : parseFloat(sensor.temperature);
+  const humidity = typeof sensor.humidity === 'number' ? sensor.humidity : parseFloat(sensor.humidity);
+  const pressure = typeof sensor.pressure === 'number' ? sensor.pressure : parseFloat(sensor.pressure);
+  
   return (
     <Card className="overflow-hidden border-t-4 border-t-lora hover:shadow-lg transition-all duration-300">
       <CardHeader className="pb-2">
@@ -72,19 +77,19 @@ const SensorCard: React.FC<SensorCardProps> = ({ sensor }) => {
         <div className="grid grid-cols-3 gap-4 mt-2">
           <div className="flex flex-col items-center p-2 rounded-md bg-sensor-temp bg-opacity-10">
             <Thermometer className="h-5 w-5 text-sensor-temp mb-1" />
-            <span className="text-lg font-medium">{sensor.temperature.toFixed(1)}°C</span>
+            <span className="text-lg font-medium">{!isNaN(temperature) ? temperature.toFixed(1) : "N/A"}°C</span>
             <span className="text-xs text-muted-foreground">Température</span>
           </div>
 
           <div className="flex flex-col items-center p-2 rounded-md bg-sensor-humidity bg-opacity-10">
             <Droplet className="h-5 w-5 text-sensor-humidity mb-1" />
-            <span className="text-lg font-medium">{sensor.humidity.toFixed(1)}%</span>
+            <span className="text-lg font-medium">{!isNaN(humidity) ? humidity.toFixed(1) : "N/A"}%</span>
             <span className="text-xs text-muted-foreground">Humidité</span>
           </div>
 
           <div className="flex flex-col items-center p-2 rounded-md bg-blue-500 bg-opacity-10">
             <Gauge className="h-5 w-5 text-blue-500 mb-1" />
-            <span className="text-lg font-medium">{sensor.pressure.toFixed(1)}</span>
+            <span className="text-lg font-medium">{!isNaN(pressure) ? pressure.toFixed(1) : "N/A"}</span>
             <span className="text-xs text-muted-foreground">Pression</span>
           </div>
         </div>

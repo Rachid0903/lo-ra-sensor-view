@@ -29,15 +29,24 @@ const Dashboard: React.FC = () => {
   const calculateStats = (sensors: SensorData[]) => {
     if (sensors.length === 0) return;
     
-    const tempSum = sensors.reduce((sum, sensor) => sum + sensor.temperature, 0);
-    const humiditySum = sensors.reduce((sum, sensor) => sum + sensor.humidity, 0);
-    const pressureSum = sensors.reduce((sum, sensor) => sum + sensor.pressure, 0);
+    // Ensure we only calculate stats with valid numeric values
+    const validSensors = sensors.filter(sensor => 
+      !isNaN(Number(sensor.temperature)) && 
+      !isNaN(Number(sensor.humidity)) && 
+      !isNaN(Number(sensor.pressure))
+    );
+    
+    if (validSensors.length === 0) return;
+    
+    const tempSum = validSensors.reduce((sum, sensor) => sum + Number(sensor.temperature), 0);
+    const humiditySum = validSensors.reduce((sum, sensor) => sum + Number(sensor.humidity), 0);
+    const pressureSum = validSensors.reduce((sum, sensor) => sum + Number(sensor.pressure), 0);
     const onlineSensors = sensors.filter(sensor => sensor.rssi > -90).length;
     
     setStats({
-      avgTemp: parseFloat((tempSum / sensors.length).toFixed(1)),
-      avgHumidity: parseFloat((humiditySum / sensors.length).toFixed(1)),
-      avgPressure: parseFloat((pressureSum / sensors.length).toFixed(1)),
+      avgTemp: parseFloat((tempSum / validSensors.length).toFixed(1)),
+      avgHumidity: parseFloat((humiditySum / validSensors.length).toFixed(1)),
+      avgPressure: parseFloat((pressureSum / validSensors.length).toFixed(1)),
       onlineSensors: onlineSensors
     });
   };
@@ -49,10 +58,19 @@ const Dashboard: React.FC = () => {
     const handleData = (snapshot: any) => {
       const data = snapshot.val();
       if (data) {
-        const sensorsArray = Object.entries(data).map(([id, values]: [string, any]) => ({
-          id,
-          ...values
-        }));
+        const sensorsArray = Object.entries(data).map(([id, values]: [string, any]) => {
+          // Ensure all numeric values are properly converted
+          const sensorData: SensorData = {
+            id,
+            temperature: Number(values.temperature),
+            humidity: Number(values.humidity),
+            pressure: Number(values.pressure),
+            rssi: Number(values.rssi),
+            uptime: Number(values.uptime),
+            timestamp: Number(values.timestamp)
+          };
+          return sensorData;
+        });
         
         setSensors(sensorsArray);
         calculateStats(sensorsArray);
