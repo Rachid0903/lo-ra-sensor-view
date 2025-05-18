@@ -5,8 +5,6 @@ from pydantic import BaseModel
 from typing import List
 import sqlite3
 from datetime import datetime
-import hashlib
-import os
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -34,44 +32,10 @@ class SensorResponse(BaseModel):
     rssi: int
     last_updated: str
 
-class UserCreate(BaseModel):
-    email: str
-    password: str
-    first_name: str
-    last_name: str
-
-class UserLogin(BaseModel):
-    email: str
-    password: str
-
-# Simple password hashing functions
-def get_password_hash(password: str) -> str:
-    salt = os.urandom(32)  # 32 bytes salt
-    key = hashlib.pbkdf2_hmac(
-        'sha256',
-        password.encode('utf-8'),
-        salt,
-        100000,  # 100,000 iterations
-    )
-    return salt.hex() + ':' + key.hex()
-
-def verify_password(plain_password: str, stored_password: str) -> bool:
-    salt_hex, key_hex = stored_password.split(':')
-    salt = bytes.fromhex(salt_hex)
-    key = hashlib.pbkdf2_hmac(
-        'sha256',
-        plain_password.encode('utf-8'),
-        salt,
-        100000,  # 100,000 iterations
-    )
-    return key.hex() == key_hex
-
 # Database initialization
 def init_db():
     conn = sqlite3.connect('sensors.db')
     c = conn.cursor()
-    
-    # Create sensors table
     c.execute('''
         CREATE TABLE IF NOT EXISTS sensors
         (chip_id TEXT PRIMARY KEY, 
@@ -80,65 +44,10 @@ def init_db():
         rssi INTEGER,
         last_updated TIMESTAMP)
     ''')
-    
-    # Create users table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users
-        (id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE,
-        hashed_password TEXT,
-        first_name TEXT,
-        last_name TEXT)
-    ''')
-    
     conn.commit()
     conn.close()
 
 init_db()
-
-@app.post("/register/")
-async def register(user: UserCreate):
-    conn = sqlite3.connect('sensors.db')
-    c = conn.cursor()
-    
-    try:
-        # Check if user already exists
-        c.execute("SELECT email FROM users WHERE email = ?", (user.email,))
-        if c.fetchone():
-            raise HTTPException(status_code=400, detail="Email already registered")
-        
-        hashed_password = get_password_hash(user.password)
-        c.execute(
-            "INSERT INTO users (email, hashed_password, first_name, last_name) VALUES (?, ?, ?, ?)",
-            (user.email, hashed_password, user.first_name, user.last_name)
-        )
-        conn.commit()
-        return {"status": "success", "message": "User registered successfully"}
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-@app.post("/login/")
-async def login(user: UserLogin):
-    conn = sqlite3.connect('sensors.db')
-    c = conn.cursor()
-    
-    try:
-        c.execute("SELECT id, hashed_password FROM users WHERE email = ?", (user.email,))
-        result = c.fetchone()
-        
-        if not result or not verify_password(user.password, result[1]):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        return {"status": "success", "user_id": result[0]}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
 
 @app.post("/sensor-data/")
 async def receive_sensor_data(data: SensorData):
