@@ -1,12 +1,13 @@
-
 import React, { useEffect, useState } from "react";
 import { database } from "@/services/firebaseConfig";
 import { ref, onValue, off } from "firebase/database";
 import SensorCard from "@/components/SensorCard";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, LayoutDashboard, Thermometer, Droplet, Gauge, Signal } from "lucide-react";
+import { RefreshCw, LayoutDashboard, Thermometer, Droplet, Gauge, Signal, LogOut } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import type { SensorData } from "@/components/SensorCard";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -24,6 +25,9 @@ const Dashboard: React.FC = () => {
     avgPressure: 0,
     onlineSensors: 0
   });
+  
+  const { logout, user } = useAuth();
+  const navigate = useNavigate();
 
   // Calculer les statistiques
   const calculateStats = (sensors: SensorData[]) => {
@@ -124,6 +128,11 @@ const Dashboard: React.FC = () => {
     }).format(date);
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header avec la barre de navigation */}
@@ -137,8 +146,17 @@ const Dashboard: React.FC = () => {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
+              {user && (
+                <p className="text-sm text-gray-600">
+                  {user.email}
+                </p>
+              )}
               <Button variant="outline" onClick={handleRefresh} size="sm">
                 Actualiser
+              </Button>
+              <Button variant="outline" onClick={handleLogout} size="sm" className="flex items-center gap-1">
+                <LogOut className="h-4 w-4" />
+                Déconnexion
               </Button>
             </div>
           </div>

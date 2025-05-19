@@ -19,24 +19,17 @@ const LoginForm: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [isForgotLoading, setIsForgotLoading] = useState(false);
   
-  const { login, forgotPassword } = useAuth();
+  const { login, forgotPassword, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    try {
-      const success = await login(email, password);
-      if (success) {
-        navigate("/dashboard");
-      }
-    } finally {
-      setIsLoading(false);
+    const success = await login(email, password);
+    if (success) {
+      navigate("/dashboard");
     }
   };
 

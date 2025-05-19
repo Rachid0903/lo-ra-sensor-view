@@ -1,21 +1,29 @@
 
-import React, { createContext, useState, useContext, ReactNode } from "react";
+import React, { createContext, useState, useContext, ReactNode, useEffect } from "react";
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from "firebase/auth";
+import { auth } from "@/services/firebaseConfig";
 import { toast } from "@/components/ui/use-toast";
 
 interface User {
   id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
+  email: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (email: string, password: string, firstName: string, lastName: string) => Promise<boolean>;
-  logout: () => void;
+  register: (email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<boolean>;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,121 +42,134 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Simulating authentication functionality
+  // Observer pour les changements d'état d'authentification
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        // L'utilisateur est connecté
+        setUser({
+          id: firebaseUser.uid,
+          email: firebaseUser.email,
+        });
+      } else {
+        // L'utilisateur est déconnecté
+        setUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    // Nettoyer l'abonnement à l'observateur lors du démontage du composant
+    return () => unsubscribe();
+  }, []);
+
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // In a real app, you would make an API call here
-      // Simulating successful login for demo purposes
-      if (email && password) {
-        // Simulating a small delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // For the demo, we'll use a simple condition
-        if (email === "test@example.com" && password === "password") {
-          const userData: User = {
-            id: "user123",
-            email,
-            firstName: "Jean",
-            lastName: "Dupont",
-          };
-          setUser(userData);
-          localStorage.setItem("user", JSON.stringify(userData));
-          return true;
-        } else {
-          toast({
-            title: "Échec de connexion",
-            description: "Email ou mot de passe incorrect",
-            variant: "destructive",
-          });
-          return false;
-        }
-      }
-      return false;
-    } catch (error) {
+      setIsLoading(true);
+      await signInWithEmailAndPassword(auth, email, password);
       toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la connexion",
+        title: "Connexion réussie",
+        description: "Vous êtes maintenant connecté",
+      });
+      return true;
+    } catch (error: any) {
+      let message = "Une erreur est survenue lors de la connexion";
+      
+      if (error.code === "auth/invalid-credential") {
+        message = "Email ou mot de passe incorrect";
+      } else if (error.code === "auth/user-not-found") {
+        message = "Aucun utilisateur trouvé avec cet email";
+      } else if (error.code === "auth/wrong-password") {
+        message = "Mot de passe incorrect";
+      }
+      
+      toast({
+        title: "Échec de connexion",
+        description: message,
         variant: "destructive",
       });
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const register = async (
-    email: string,
-    password: string,
-    firstName: string,
-    lastName: string
-  ): Promise<boolean> => {
+  const register = async (email: string, password: string): Promise<boolean> => {
     try {
-      // In a real app, you would make an API call here
-      // Simulating successful registration for demo purposes
-      await new Promise(resolve => setTimeout(resolve, 800));
+      setIsLoading(true);
+      await createUserWithEmailAndPassword(auth, email, password);
       
       toast({
         title: "Inscription réussie",
         description: "Votre compte a été créé avec succès",
       });
-      
-      // Auto-login after successful registration
-      const userData: User = {
-        id: "user123",
-        email,
-        firstName,
-        lastName,
-      };
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      let message = "Une erreur est survenue lors de l'inscription";
+      
+      if (error.code === "auth/email-already-in-use") {
+        message = "Cet email est déjà utilisé";
+      } else if (error.code === "auth/weak-password") {
+        message = "Mot de passe trop faible";
+      } else if (error.code === "auth/invalid-email") {
+        message = "Format d'email invalide";
+      }
+      
       toast({
         title: "Erreur",
-        description: "Une erreur est survenue lors de l'inscription",
+        description: message,
         variant: "destructive",
       });
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("user");
+  const logout = async (): Promise<void> => {
+    try {
+      await signOut(auth);
+      toast({
+        title: "Déconnexion réussie",
+        description: "Vous êtes maintenant déconnecté",
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la déconnexion",
+        variant: "destructive",
+      });
+    }
   };
 
   const forgotPassword = async (email: string): Promise<boolean> => {
     try {
-      // In a real app, you would make an API call here
-      // Simulating successful password reset request
-      await new Promise(resolve => setTimeout(resolve, 800));
+      setIsLoading(true);
+      await sendPasswordResetEmail(auth, email);
       
       toast({
         title: "Email envoyé",
         description: "Un email de réinitialisation a été envoyé à votre adresse",
       });
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      let message = "Une erreur est survenue lors de la demande de réinitialisation";
+      
+      if (error.code === "auth/user-not-found") {
+        message = "Aucun utilisateur trouvé avec cet email";
+      }
+      
       toast({
         title: "Erreur",
-        description: "Une erreur est survenue lors de la demande de réinitialisation",
+        description: message,
         variant: "destructive",
       });
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  // Check if user is logged in from localStorage on page load
-  React.useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      } catch (error) {
-        localStorage.removeItem("user");
-      }
-    }
-  }, []);
 
   const value = {
     user,
@@ -157,6 +178,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     forgotPassword,
+    isLoading
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
