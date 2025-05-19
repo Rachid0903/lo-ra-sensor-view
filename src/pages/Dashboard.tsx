@@ -58,19 +58,21 @@ const Dashboard: React.FC = () => {
     const handleData = (snapshot: any) => {
       const data = snapshot.val();
       if (data) {
-        const sensorsArray = Object.entries(data).map(([id, values]: [string, any]) => {
-          // Ensure all numeric values are properly converted
-          const sensorData: SensorData = {
-            id,
-            temperature: Number(values.temperature),
-            humidity: Number(values.humidity),
-            pressure: Number(values.pressure),
-            rssi: Number(values.rssi),
-            uptime: Number(values.uptime),
-            timestamp: Number(values.timestamp)
-          };
-          return sensorData;
-        });
+        const sensorsArray = Object.entries(data)
+          .filter(([id]) => id !== "0") // Filter out the sensor with ID "0"
+          .map(([id, values]: [string, any]) => {
+            // Ensure all numeric values are properly converted
+            const sensorData: SensorData = {
+              id,
+              temperature: Number(values.temperature),
+              humidity: Number(values.humidity),
+              pressure: Number(values.pressure),
+              rssi: Number(values.rssi),
+              uptime: Number(values.uptime),
+              timestamp: Number(values.timestamp)
+            };
+            return sensorData;
+          });
         
         setSensors(sensorsArray);
         calculateStats(sensorsArray);
