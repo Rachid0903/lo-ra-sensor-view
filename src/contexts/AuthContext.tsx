@@ -44,23 +44,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Observer pour les changements d'état d'authentification
+  // Observer for authentication state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // L'utilisateur est connecté
+        // User is logged in
         setUser({
           id: firebaseUser.uid,
           email: firebaseUser.email,
         });
       } else {
-        // L'utilisateur est déconnecté
+        // User is logged out
         setUser(null);
       }
       setIsLoading(false);
     });
 
-    // Nettoyer l'abonnement à l'observateur lors du démontage du composant
+    // Clean up subscription when component unmounts
     return () => unsubscribe();
   }, []);
 
